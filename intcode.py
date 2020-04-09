@@ -2,7 +2,7 @@ from collections import deque
 
 class VM:
     def __init__(self, program, inp=[]):
-        self.iter = None
+        self._iter = None
         if type(program) == str:
             self.codes = [int(i) for i in program.split(',')]
         else:
@@ -10,6 +10,7 @@ class VM:
         self.inp = deque(inp)
         self.provided = False
         self.base = 0
+        self.waiting = -1
         self.pos = 0
         self.ops = {
             1: self._add,
@@ -31,12 +32,20 @@ class VM:
         vm.pos = self.pos
         return vm
         
+    def __iter__(self):
+        if self._iter is None:
+            self._iter = self._run()
+        return self._iter
+    
     def run(self):
-        if self.iter is None:
-            self.iter = self._run()
-        return next(self.iter)
+        if self._iter is None:
+            self._iter = self._run()
+        return next(self._iter)
     
     def _run(self):
+        if self.waiting > -1:
+            self.pos = self.waiting
+            self.waiting = -1
         while self.pos < len(self.codes):
             opcode = self.codes[self.pos] % 100
 
@@ -97,6 +106,10 @@ class VM:
         return self.pos + 2, a
     
     def _inpt(self):
+        if len(self.inp) == 0:
+            self.waiting = self.pos
+            self._iter = None
+            return self._halt()
         self._w(self.pos, 1, self.inp.popleft())
         if self.provided:
             self.inp.append(self.inp[0])
